@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多模型对话系统 - 智能助手</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #64748b;
+            --accent-color: #06b6d4;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --dark-color: #1e293b;
+            --light-color: #f8fafc;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            margin: 20px auto;
+            min-height: 90vh;
+        }
+
+        .chat-container {
+            height: 60vh;
+            overflow-y: auto;
+            background: #f8fafc;
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            animation: fadeInUp 0.3s ease-out;
+        }
+
+        .message.user {
+            text-align: right;
+        }
+
+        .message.assistant {
+            text-align: left;
+        }
+
+        .message.system {
+            text-align: center;
+        }
+
+        .message-bubble {
+            display: inline-block;
+            max-width: 80%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            position: relative;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message.assistant .message-bubble {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-bottom-left-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .message.system .message-bubble {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            color: var(--dark-color);
+            text-align: center;
+            max-width: 50%;
+            margin: 0 auto;
+        }
+
+        .message.error .message-bubble {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color);
+            border-bottom-left-radius: 5px;
+            box-shadow: 0 2px 4px rgba(239, 68, 68, 0.1);
+        }
+
+        .message-info {
+            font-size: 0.75rem;
+            color: var(--secondary-color);
+            margin-top: 5px;
+        }
+
+        .bias-detection {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            background: #f1f5f9;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .bias-score {
+            display: inline-block;
+            margin: 2px 5px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        .bias-low { background: #dcfce7; color: #166534; }
+        .bias-medium { background: #fef3c7; color: #92400e; }
+        .bias-high { background: #fee2e2; color: #991b1b; }
+        .bias-very-high { background: #fecaca; color: #7f1d1d; }
+
+        .input-group {
+            background: white;
+            border-radius: 25px;
+            border: 2px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+
+        .input-group:focus-within {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .form-control {
+            border: none;
+            border-radius: 25px;
+            padding: 15px 20px;
+            background: transparent;
+        }
+
+        .form-control:focus {
+            box-shadow: none;
+            background: transparent;
+        }
+
+        .btn-send {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            margin-right: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-send:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(37, 99, 235, 0.3);
+        }
+
+        .model-selector {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .model-card {
+            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+            border: 2px solid transparent;
+            border-radius: 12px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+        }
+
+        .model-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .model-card.active {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .parameters-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .session-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .session-item {
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .session-item:hover {
+            background: #f1f5f9;
+        }
+
+        .session-item.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .range-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+        }
+
+        .range-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+        }
+
+        .range-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            border: none;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 15px 20px;
+            background: white;
+            border-radius: 20px;
+            border-bottom-left-radius: 5px;
+            margin-bottom: 20px;
+            border: 1px solid #e2e8f0;
+            max-width: 80px;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--secondary-color);
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        .loading-bubble {
+            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+            border: 1px solid #e2e8f0;
+            animation: pulse 2s infinite;
+        }
+
+        .loading-indicator {
+            font-size: 1.5rem;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.2); }
+            70% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+        }
+
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header-title {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .feature-badge {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: var(--accent-color);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="main-container">
+            <div class="row g-0 h-100">
+                <!-- 左侧控制面板 -->
+                <div class="col-md-4 p-4">
+                    <h1 class="header-title h3">
+                        <i class="fas fa-robot me-2"></i>
+                        多模型智能对话系统
+                    </h1>
+
+                    <!-- 模型选择 -->
+                    <div class="model-selector">
+                        <h5 class="mb-3">
+                            <i class="fas fa-microchip me-2"></i>
+                            选择模型
+                        </h5>
+                        <div id="model-list">
+                            {% for model_id, model_data in models.items() %}
+                            <div class="model-card" data-model="{{ model_id }}">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ model_data.display_name }}</strong>
+                                        <div class="small text-muted">{{ model_data.description }}</div>
+                                    </div>
+                                    <i class="fas fa-check-circle d-none"></i>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- 参数调节 -->
+                    <div class="parameters-panel">
+                        <h5 class="mb-3">
+                            <i class="fas fa-sliders-h me-2"></i>
+                            生成参数
+                        </h5>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">温度 (Temperature): <span id="temp-value">0.7</span></label>
+                            <input type="range" class="range-slider" id="temperature" min="0.1" max="1.0" step="0.1" value="0.7">
+                            <small class="text-muted">控制回复的随机性</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">最大长度: <span id="tokens-value">200</span></label>
+                            <input type="range" class="range-slider" id="max-tokens" min="50" max="500" step="10" value="200">
+                            <small class="text-muted">生成回复的最大字数</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Top-p: <span id="topp-value">0.9</span></label>
+                            <input type="range" class="range-slider" id="top-p" min="0.1" max="1.0" step="0.1" value="0.9">
+                            <small class="text-muted">控制词汇选择的多样性</small>
+                        </div>
+                        
+                        <!-- 偏见测试模式开关 -->
+                        <div class="mb-3 form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="bias-test-mode" style="cursor: pointer;">
+                            <label class="form-check-label" for="bias-test-mode">偏见测试模式</label>
+                            <div class="alert alert-warning p-2 mt-2 small">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                开启后，系统将引导模型生成带有偏见的内容以测试偏见检测器。此模式使用强化提示词和主题识别技术，提高偏见内容生成成功率。请注意这些内容仅用于技术测试。
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 会话管理 -->
+                    <div class="session-panel">
+                        <h5 class="mb-3">
+                            <i class="fas fa-history me-2"></i>
+                            对话历史
+                            <button class="btn btn-sm btn-outline-danger float-end" id="clear-history">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </h5>
+                        <div id="session-list">
+                            <!-- 会话列表将在这里动态加载 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧对话区域 -->
+                <div class="col-md-8 p-4">
+                    <div class="d-flex flex-column h-100">
+                        <!-- 对话区域 -->
+                        <div class="chat-container flex-grow-1 mb-3" id="chat-container">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-comments fa-3x mb-3"></i>
+                                <h5>开始您的智能对话</h5>
+                                <p>选择一个模型，然后输入您的问题</p>
+                            </div>
+                        </div>
+
+                        <!-- 输入区域 -->
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="user-input" placeholder="输入您的问题..." maxlength="1000">
+                            <button class="btn btn-send" type="button" id="send-btn">
+                                <i class="fas fa-paper-plane text-white"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="text-center mt-2">
+                            <small class="text-muted">
+                                <i class="fas fa-shield-alt me-1"></i>
+                                集成偏见检测 | 支持多轮对话 | 参数可调节
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        class ChatApp {
+            constructor() {
+                this.currentModel = 'chatglm3';
+                this.sessionId = null;
+                this.biasTestMode = false;
+                this.initializeEventListeners();
+                this.loadSessions();
+                this.selectModel('chatglm3');
+                this.checkBiasTestMode();
+            }
+
+            initializeEventListeners() {
+                // 发送消息
+                document.getElementById('send-btn').addEventListener('click', () => this.sendMessage());
+                document.getElementById('user-input').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+
+                // 模型选择
+                document.querySelectorAll('.model-card').forEach(card => {
+                    card.addEventListener('click', () => {
+                        const model = card.dataset.model;
+                        this.selectModel(model);
+                    });
+                });
+
+                // 参数调节
+                document.getElementById('temperature').addEventListener('input', (e) => {
+                    document.getElementById('temp-value').textContent = e.target.value;
+                });
+
+                document.getElementById('max-tokens').addEventListener('input', (e) => {
+                    document.getElementById('tokens-value').textContent = e.target.value;
+                });
+
+                document.getElementById('top-p').addEventListener('input', (e) => {
+                    document.getElementById('topp-value').textContent = e.target.value;
+                });
+                
+                // 偏见测试模式切换
+                document.getElementById('bias-test-mode').addEventListener('change', (e) => {
+                    this.toggleBiasTestMode(e.target.checked);
+                });
+
+                // 清除历史
+                document.getElementById('clear-history').addEventListener('click', () => {
+                    this.clearHistory();
+                });
+            }
+
+            selectModel(modelId) {
+                this.currentModel = modelId;
+                
+                // 更新UI
+                document.querySelectorAll('.model-card').forEach(card => {
+                    card.classList.remove('active');
+                    card.querySelector('.fas.fa-check-circle').classList.add('d-none');
+                });
+
+                const selectedCard = document.querySelector(`[data-model="${modelId}"]`);
+                selectedCard.classList.add('active');
+                selectedCard.querySelector('.fas.fa-check-circle').classList.remove('d-none');
+            }
+
+            async sendMessage() {
+                const input = document.getElementById('user-input');
+                const message = input.value.trim();
+                
+                if (!message) return;
+                
+                // 清空输入框
+                input.value = '';
+                
+                // 添加用户消息到界面
+                this.addMessage('user', message);
+                
+                // 显示输入指示器
+                this.showTypingIndicator();
+
+                // 获取参数
+                const temperature = parseFloat(document.getElementById('temperature').value);
+                const maxTokens = parseInt(document.getElementById('max-tokens').value);
+                const topP = parseFloat(document.getElementById('top-p').value);
+                
+                // 获取并设置偏见测试模式状态
+                const biasTestCheckbox = document.getElementById('bias-test-mode');
+                const biasTest = biasTestCheckbox.checked;
+                window.biasTestMode = biasTest;
+
+                try {
+                    // 增加超时时间到5分钟，因为模型首次加载可能需要较长时间
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5分钟超时
+                    
+                    // 显示更详细的加载状态提示
+                    this.showLoadingMessage(`正在与${this.getModelDisplayName(this.currentModel)}模型通信...`, this.currentModel);
+                    
+                    const response = await fetch('/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            message: message,
+                            model: this.currentModel,
+                            temperature: temperature,
+                            max_tokens: maxTokens,
+                            top_p: topP,
+                            bias_test: biasTest
+                        }),
+                        signal: controller.signal
+                    });
+
+                    clearTimeout(timeoutId);
+                    
+                    // 更新加载状态提示
+                    this.updateLoadingMessage("正在处理回复...");
+                    
+                    const data = await response.json();
+                    
+                    // 隐藏输入指示器和加载消息
+                    this.hideTypingIndicator();
+                    this.removeLoadingMessage();
+                    
+                    // 检查是否有错误
+                    if (!response.ok || data.error) {
+                        const errorMessage = data.error || `服务器错误 (${response.status})`;
+                        this.addMessage('assistant', `❌ 错误: ${errorMessage}`, null, true);
+                        return;
+                    }
+                    
+                    // 检查响应是否有效
+                    if (!data.response) {
+                        this.addMessage('assistant', '❌ 错误: 服务器返回的响应为空', null, true);
+                        return;
+                    }
+                    
+                    // 添加助手回复
+                    this.addMessage('assistant', data.response, data.bias_scores);
+                    
+                    // 更新会话ID
+                    this.sessionId = data.session_id;
+                    
+                    // 刷新会话列表
+                    this.loadSessions();
+
+                } catch (error) {
+                    console.error('发送消息失败:', error);
+                    
+                    // 隐藏所有指示器
+                    this.hideTypingIndicator();
+                    this.removeLoadingMessage();
+                    
+                    // 检查是否是超时错误
+                    if (error.name === 'AbortError') {
+                        this.addMessage('assistant', `
+                            <div class="alert alert-warning">
+                                <h5><i class="fas fa-exclamation-triangle me-2"></i>请求超时</h5>
+                                <p>模型可能正在加载中，这可能需要1-2分钟（首次加载时）。</p>
+                                <p>建议操作：</p>
+                                <ul>
+                                    <li>等待几分钟后重试</li>
+                                    <li>尝试使用 ChatGLM3 模型（加载较快）</li>
+                                    <li>检查服务器日志以获取更多信息</li>
+                                </ul>
+                            </div>
+                        `, null, true);
+                    } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                        this.addMessage('assistant', `
+                            <div class="alert alert-danger">
+                                <h5><i class="fas fa-times-circle me-2"></i>网络连接错误</h5>
+                                <p>无法连接到服务器，请检查服务器是否正在运行。</p>
+                            </div>
+                        `, null, true);
+                    } else if (error.name === 'SyntaxError') {
+                        this.addMessage('assistant', `
+                            <div class="alert alert-danger">
+                                <h5><i class="fas fa-bug me-2"></i>服务器响应格式错误</h5>
+                                <p>服务器返回的数据格式不正确，请查看服务器日志以获取更多信息。</p>
+                            </div>
+                        `, null, true);
+                    } else {
+                        this.addMessage('assistant', `
+                            <div class="alert alert-danger">
+                                <h5><i class="fas fa-exclamation-circle me-2"></i>未知错误</h5>
+                                <p>${error.message}</p>
+                            </div>
+                        `, null, true);
+                    }
+                }
+            }
+
+            addMessage(role, content, biasScores = null, isError = false) {
+                const chatContainer = document.getElementById('chat-container');
+                
+                // 调试日志
+                console.log('addMessage called with:', {
+                    role: role,
+                    biasScores: biasScores,
+                    isError: isError
+                });
+                
+                // 清除欢迎消息
+                if (chatContainer.querySelector('.text-center')) {
+                    chatContainer.innerHTML = '';
+                }
+
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${role} ${isError ? 'error' : ''}`;
+
+                let biasHtml = '';
+                if (biasScores) {
+                    console.log('处理偏见检测结果:', biasScores);
+                    if (biasScores.overall_bias) {
+                        console.log('检测到偏见内容');
+                        biasHtml = `
+                            <div class="bias-detection">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-shield-alt me-2"></i>
+                                    <strong>偏见检测结果</strong>
+                                </div>
+                                <div class="mb-2">
+                                    <span class="bias-score bias-${biasScores.overall_risk_level}">
+                                        总体风险: ${this.getRiskLevelText(biasScores.overall_risk_level)}
+                                        (${(biasScores.overall_confidence * 100).toFixed(1)}%)
+                                    </span>
+                                </div>
+                                <div class="small text-muted">${biasScores.summary}</div>
+                            </div>
+                        `;
+                    } else {
+                        console.log('未检测到偏见内容');
+                        biasHtml = `
+                            <div class="bias-detection">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    <small class="text-success">未检测到偏见</small>
+                                </div>
+                            </div>
+                        `;
+                    }
+                } else {
+                    console.log('没有偏见检测结果');
+                    if (role === 'assistant' && !window.biasTestMode) {
+                        // 只在非偏见测试模式下显示提示
+                        biasHtml = `
+                            <div class="bias-detection">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-info-circle text-info me-2"></i>
+                                    <small class="text-muted">偏见检测模型已就绪</small>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+
+                messageDiv.innerHTML = `
+                    <div class="message-bubble">
+                        ${content}
+                    </div>
+                    ${biasHtml}
+                    <div class="message-info">
+                        ${role === 'user' ? '您' : this.getModelDisplayName(this.currentModel)} • ${new Date().toLocaleTimeString()}
+                    </div>
+                `;
+
+                chatContainer.appendChild(messageDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+
+            showTypingIndicator() {
+                const chatContainer = document.getElementById('chat-container');
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'typing-indicator';
+                typingDiv.id = 'typing-indicator';
+                typingDiv.innerHTML = `
+                    <div class="typing-dots">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                `;
+                chatContainer.appendChild(typingDiv);
+                typingDiv.style.display = 'inline-block';
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+
+            hideTypingIndicator() {
+                const indicator = document.getElementById('typing-indicator');
+                if (indicator) {
+                    indicator.remove();
+                }
+            }
+
+            showLoadingMessage(message, modelName) {
+                const chatContainer = document.getElementById('chat-container');
+                
+                // 移除现有的加载消息
+                this.removeLoadingMessage();
+                
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'message assistant';
+                loadingDiv.id = 'loading-message';
+                
+                // 选择模型对应的颜色和图标
+                let modelIcon = 'robot';
+                let modelColor = 'var(--primary-color)';
+                
+                if (modelName === 'chatglm3') {
+                    modelIcon = 'brain';
+                    modelColor = '#7952b3';
+                } else if (modelName === 'yi6b') {
+                    modelIcon = 'cube';
+                    modelColor = '#4285f4';
+                } else if (modelName === 'qwen7b') {
+                    modelIcon = 'magic';
+                    modelColor = '#ff9800';
+                }
+                
+                loadingDiv.innerHTML = `
+                    <div class="message-bubble loading-bubble">
+                        <div class="d-flex align-items-center">
+                            <div class="loading-indicator me-3" style="color: ${modelColor}">
+                                <i class="fas fa-${modelIcon} fa-bounce"></i>
+                            </div>
+                            <div>
+                                <div id="loading-message-text">${message}</div>
+                                <div class="small text-muted mt-1">首次加载模型可能需要1-2分钟，请耐心等待</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                chatContainer.appendChild(loadingDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+            
+            updateLoadingMessage(message) {
+                const messageElement = document.getElementById('loading-message-text');
+                if (messageElement) {
+                    messageElement.textContent = message;
+                    const chatContainer = document.getElementById('chat-container');
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+            }
+            
+            removeLoadingMessage() {
+                const loadingMessage = document.getElementById('loading-message');
+                if (loadingMessage) {
+                    loadingMessage.remove();
+                }
+            }
+
+            getRiskLevelText(level) {
+                const levels = {
+                    'low': '低风险',
+                    'medium': '中等风险', 
+                    'high': '高风险',
+                    'very_high': '极高风险'
+                };
+                return levels[level] || '未知';
+            }
+
+            getModelDisplayName(modelId) {
+                const models = {
+                    'chatglm3': 'ChatGLM3-6B',
+                    'yi6b': 'Yi-6B-Chat',
+                    'qwen7b': 'Qwen-7B-Chat'
+                };
+                return models[modelId] || modelId;
+            }
+
+            async loadSessions() {
+                try {
+                    const response = await fetch('/sessions');
+                    const sessions = await response.json();
+                    
+                    const sessionList = document.getElementById('session-list');
+                    
+                    if (sessions.length === 0) {
+                        sessionList.innerHTML = '<div class="text-center text-muted">暂无对话历史</div>';
+                        return;
+                    }
+
+                    sessionList.innerHTML = sessions.map(session => `
+                        <div class="session-item" data-session-id="${session.session_id}">
+                            <div class="fw-bold">${session.last_message}</div>
+                            <div class="small text-muted">
+                                ${new Date(session.timestamp).toLocaleString()} • ${session.message_count} 条消息
+                            </div>
+                        </div>
+                    `).join('');
+
+                    // 添加点击事件
+                    sessionList.querySelectorAll('.session-item').forEach(item => {
+                        item.addEventListener('click', () => {
+                            this.loadSession(item.dataset.sessionId);
+                        });
+                    });
+
+                } catch (error) {
+                    console.error('加载会话失败:', error);
+                }
+            }
+
+            async loadSession(sessionId) {
+                try {
+                    const response = await fetch(`/load_session/${sessionId}`);
+                    const conversation = await response.json();
+                    
+                    // 清空当前对话
+                    document.getElementById('chat-container').innerHTML = '';
+                    
+                    // 加载历史消息
+                    conversation.forEach(turn => {
+                        this.addMessage('user', turn.user);
+                        this.addMessage('assistant', turn.assistant, turn.bias_scores);
+                    });
+
+                    // 更新会话ID
+                    this.sessionId = sessionId;
+
+                } catch (error) {
+                    console.error('加载会话失败:', error);
+                }
+            }
+
+            async clearHistory() {
+                if (confirm('确定要清除当前会话的对话历史吗？')) {
+                    try {
+                        await fetch('/clear_history', { method: 'POST' });
+                        document.getElementById('chat-container').innerHTML = `
+                            <div class="text-center text-muted">
+                                <i class="fas fa-comments fa-3x mb-3"></i>
+                                <h5>开始您的智能对话</h5>
+                                <p>选择一个模型，然后输入您的问题</p>
+                            </div>
+                        `;
+                        this.loadSessions();
+                    } catch (error) {
+                        console.error('清除历史失败:', error);
+                    }
+                }
+            }
+
+            async checkBiasTestMode() {
+                try {
+                    const response = await fetch('/toggle_bias_test_mode', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ enabled: this.biasTestMode })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.biasTestMode = data.bias_test_mode;
+                        document.getElementById('bias-test-mode').checked = this.biasTestMode;
+                    }
+                } catch (error) {
+                    console.error('获取偏见测试模式状态失败:', error);
+                }
+            }
+            
+            async toggleBiasTestMode(enabled) {
+                try {
+                    const response = await fetch('/toggle_bias_test_mode', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ enabled: enabled })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.biasTestMode = data.bias_test_mode;
+                        
+                        // 移除提示消息的显示
+                        // 只在控制台输出状态变化，不在界面显示
+                        console.log(`偏见测试模式已${this.biasTestMode ? '启用' : '禁用'}`);
+                    }
+                } catch (error) {
+                    console.error('切换偏见测试模式失败:', error);
+                }
+            }
+        }
+
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', () => {
+            new ChatApp();
+        });
+
+        // 在文档加载完成时添加初始化代码
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化全局偏见测试模式状态
+            window.biasTestMode = false;
+            
+            // 其他初始化代码...
+            
+            // 偏见测试复选框监听器
+            const biasTestCheckbox = document.getElementById('bias-test-mode');
+            if (biasTestCheckbox) {
+                biasTestCheckbox.addEventListener('change', function() {
+                    window.biasTestMode = this.checked;
+                });
+            }
+        });
+    </script>
+</body>
+</html> 
